@@ -21,13 +21,12 @@ client = pulsar.Client(pulsar_url,  tls_allow_insecure_connection=True, tls_vali
 consumer = client.subscribe(pulsar_topic, subscription_name=pulsar_subscription_name)
 atlas_client = AtlasClient(atlas_url, (atlas_user, atlas_pwd))
 
-runid_list=[]
 while True:
     
     msg = consumer.receive()
-    print("received a message")
     #print("Received message: Data: %s \nProperties : %s \n" % (msg.data(), msg.properties()))
-    properties_list=list(msg.properties().values())
+    #properties_list=list(msg.properties().values())
+    
     event=json.loads(msg.data().decode('utf-8'))
 
     if (event['eventType']=='COMPLETE'):
@@ -135,11 +134,6 @@ while True:
             guid_spark_outputs_process = resp.get_assigned_guid(ol_atlas_outputs_process.guid)
 
             print('created ol_atlas_outputs_process: guid=' + guid_spark_outputs_process)
-
-
-
-    if event['run']['runId'] not in runid_list:
-        runid_list.append(event['run']['runId'])
 
 
     consumer.acknowledge(msg)
