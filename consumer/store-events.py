@@ -22,122 +22,247 @@ consumer = client.subscribe(pulsar_topic, subscription_name=pulsar_subscription_
 atlas_client = AtlasClient(atlas_url, (atlas_user, atlas_pwd))
 
 while True:
+
     
     msg = consumer.receive()
-    #print("Received message: Data: %s \nProperties : %s \n" % (msg.data(), msg.properties()))
-    #properties_list=list(msg.properties().values())
-    
-    event=json.loads(msg.data().decode('utf-8'))
 
-    if (event['eventType']=='COMPLETE'):
-
-        print(event['eventType'])
+    try:
+        print("Received message: Data: %s \nProperties : %s \n" % (msg.data(), msg.properties()))
+        #properties_list=list(msg.properties().values())
         
-        # App for Job
+        event=json.loads(msg.data().decode('utf-8'))
 
-        ol_atlas_app= AtlasEntity({ 'typeName': 'spark_application' })
+        if (event['eventType']=='COMPLETE'):
 
-        job_attributes=event["job"]
-        qualified_name=job_attributes['name'] + '@prod'
-        atlas_attributes={'qualifiedName':qualified_name}
-        attributes=job_attributes | atlas_attributes
-        ol_atlas_app.attributes=attributes
+            if ((event['producer']).endswith('spark')):
 
-        print(ol_atlas_app)
-        ol_atlas_info        = AtlasEntityWithExtInfo()
-        ol_atlas_info.entity = ol_atlas_app
+                # App for Job
 
-        print('Creating ol_atlas_app')
-        resp = atlas_client.entity.create_entity(ol_atlas_info)
+                ol_atlas_spark_app= AtlasEntity({ 'typeName': 'spark_application' })
 
-        guid_app = resp.get_assigned_guid(ol_atlas_app.guid)
+                job_attributes=event["job"]
+                qualified_name=job_attributes['name'] + '@prod'
+                atlas_attributes={'qualifiedName':qualified_name}
+                attributes=job_attributes | atlas_attributes
+                ol_atlas_spark_app.attributes=attributes
 
-        print('created ol_atlas_app: guid=' + guid_app)
+                #print(ol_atlas_spark_app)
+                ol_atlas_info        = AtlasEntityWithExtInfo()
+                ol_atlas_info.entity = ol_atlas_spark_app
 
-        # Process for Run
+                print('Creating ol_atlas_spark_app')
+                resp = atlas_client.entity.create_entity(ol_atlas_info)
 
-        ol_atlas_run_process= AtlasEntity({ 'typeName': 'spark_process' })
+                guid_spark_app = resp.get_assigned_guid(ol_atlas_spark_app.guid)
 
-        run_attributes=event["run"]
-        process_name='run_'+run_attributes['runId']
-        atlas_attributes={'name':process_name, 'qualifiedName':run_attributes['runId'] + '@prod'}
-        attributes=run_attributes | atlas_attributes
-        ol_atlas_run_process.attributes=attributes
-        ol_atlas_run_process.relationshipAttributes = { 'application' : AtlasRelatedObjectId({ 'guid': guid_app})  }
+                print('created ol_atlas_spark_app: guid=' + guid_spark_app)
 
-        print(ol_atlas_run_process)
-        ol_atlas_info        = AtlasEntityWithExtInfo()
-        ol_atlas_info.entity = ol_atlas_run_process
+                # Process for Run
 
-        print('Creating ol_atlas_run_process')
+                ol_atlas_run_process= AtlasEntity({ 'typeName': 'spark_process' })
 
-        resp = atlas_client.entity.create_entity(ol_atlas_info)
+                run_attributes=event["run"]
+                process_name='run_'+run_attributes['runId']
+                atlas_attributes={'name':process_name, 'qualifiedName':run_attributes['runId'] + '@prod'}
+                attributes=run_attributes | atlas_attributes
+                ol_atlas_run_process.attributes=attributes
+                ol_atlas_run_process.relationshipAttributes = { 'application' : AtlasRelatedObjectId({ 'guid': guid_spark_app})  }
 
-        guid_spark_run_process = resp.get_assigned_guid(ol_atlas_run_process.guid)
+                #print(ol_atlas_run_process)
+                ol_atlas_info        = AtlasEntityWithExtInfo()
+                ol_atlas_info.entity = ol_atlas_run_process
 
-        print('created ol_atlas_run_process: guid=' + guid_spark_run_process)
+                print('Creating ol_atlas_run_process')
 
-        # Processes for inputs
+                resp = atlas_client.entity.create_entity(ol_atlas_info)
 
-        event_inputs=event["inputs"]
+                guid_spark_run_process = resp.get_assigned_guid(ol_atlas_run_process.guid)
 
-        for i in range(len(event_inputs)):
+                print('created ol_atlas_run_process: guid=' + guid_spark_run_process)
 
-            base_name='input_'
-            name=f'{base_name}{i+1}' + '_' + event['run']['runId']
-            qualified_name=name+'@prod'
-            
-            ol_atlas_inputs_process= AtlasEntity({ 'typeName': 'spark_process' })
-            
-            input_attributes=event_inputs[i]
-            atlas_attributes={'name':name, 'qualifiedName':qualified_name}
-            attributes= input_attributes | atlas_attributes
-            ol_atlas_inputs_process.attributes=attributes
-            ol_atlas_inputs_process.relationshipAttributes = { 'application' : AtlasRelatedObjectId({ 'guid': guid_app}), 'run' : AtlasRelatedObjectId({ 'guid': guid_spark_run_process}) }
+                # Processes for inputs
 
-            print(ol_atlas_inputs_process)
-            ol_atlas_info        = AtlasEntityWithExtInfo()
-            ol_atlas_info.entity = ol_atlas_inputs_process
+                event_inputs=event["inputs"]
 
-            print('Creating ' + name)
+                for i in range(len(event_inputs)):
 
-            resp = atlas_client.entity.create_entity(ol_atlas_info)
-            guid_spark_inputs_process = resp.get_assigned_guid(ol_atlas_inputs_process.guid)
+                    base_name='input_'
+                    name=f'{base_name}{i+1}' + '_' + event['run']['runId']
+                    qualified_name=name+'@prod'
+                    
+                    ol_atlas_inputs_process= AtlasEntity({ 'typeName': 'spark_process' })
+                    
+                    input_attributes=event_inputs[i]
+                    atlas_attributes={'name':name, 'qualifiedName':qualified_name}
+                    attributes= input_attributes | atlas_attributes
+                    ol_atlas_inputs_process.attributes=attributes
+                    ol_atlas_inputs_process.relationshipAttributes = { 'application' : AtlasRelatedObjectId({ 'guid': guid_spark_app}), 'run' : AtlasRelatedObjectId({ 'guid': guid_spark_run_process}) }
 
-            print('created ol_atlas_inputs_process: guid=' + guid_spark_inputs_process)
+                    #print(ol_atlas_inputs_process)
+                    ol_atlas_info        = AtlasEntityWithExtInfo()
+                    ol_atlas_info.entity = ol_atlas_inputs_process
 
-        # Processes for outputs
+                    print('Creating ' + name)
 
-        event_outputs=event["outputs"]
+                    resp = atlas_client.entity.create_entity(ol_atlas_info)
+                    guid_spark_inputs_process = resp.get_assigned_guid(ol_atlas_inputs_process.guid)
 
-        for i in range(len(event_outputs)):
+                    print('created ol_atlas_inputs_process: guid=' + guid_spark_inputs_process)
 
-            base_name='output_'
-            name=f'{base_name}{i+1}' + '_' + event['run']['runId']
-            qualified_name=name+'@prod'
-            
-            ol_atlas_outputs_process= AtlasEntity({ 'typeName': 'spark_process' })
-            
-            output_attributes=event_outputs[i]
-            atlas_attributes={'name':name, 'qualifiedName':qualified_name}
-            attributes= output_attributes | atlas_attributes
-            ol_atlas_outputs_process.attributes=attributes
-            ol_atlas_outputs_process.relationshipAttributes = { 'application' : AtlasRelatedObjectId({ 'guid': guid_app}), 'run' : AtlasRelatedObjectId({ 'guid': guid_spark_run_process}) }
+                # Processes for outputs
 
-            print(ol_atlas_outputs_process)
-            ol_atlas_info        = AtlasEntityWithExtInfo()
-            ol_atlas_info.entity = ol_atlas_outputs_process
+                event_outputs=event["outputs"]
 
-            print('Creating ' + name)
+                for i in range(len(event_outputs)):
 
-            resp = atlas_client.entity.create_entity(ol_atlas_info)
-            guid_spark_outputs_process = resp.get_assigned_guid(ol_atlas_outputs_process.guid)
+                    base_name='output_'
+                    name=f'{base_name}{i+1}' + '_' + event['run']['runId']
+                    qualified_name=name+'@prod'
+                    
+                    ol_atlas_outputs_process= AtlasEntity({ 'typeName': 'spark_process' })
+                    
+                    output_attributes=event_outputs[i]
+                    atlas_attributes={'name':name, 'qualifiedName':qualified_name}
+                    attributes= output_attributes | atlas_attributes
+                    ol_atlas_outputs_process.attributes=attributes
+                    ol_atlas_outputs_process.relationshipAttributes = { 'application' : AtlasRelatedObjectId({ 'guid': guid_spark_app}), 'run' : AtlasRelatedObjectId({ 'guid': guid_spark_run_process}) }
 
-            print('created ol_atlas_outputs_process: guid=' + guid_spark_outputs_process)
+                    #print(ol_atlas_outputs_process)
+                    ol_atlas_info        = AtlasEntityWithExtInfo()
+                    ol_atlas_info.entity = ol_atlas_outputs_process
+
+                    print('Creating ' + name)
+
+                    resp = atlas_client.entity.create_entity(ol_atlas_info)
+                    guid_spark_outputs_process = resp.get_assigned_guid(ol_atlas_outputs_process.guid)
+
+                    print('created ol_atlas_outputs_process: guid=' + guid_spark_outputs_process)
+
+            elif ((event['producer']).endswith('dbt')):
+
+                print("PRODUCER IS DBT")
+
+                
+                # App for Job
+
+                ol_atlas_dbt_app= AtlasEntity({ 'typeName': 'dbt_application' })
+
+                job_attributes=event["job"]
+                qualified_name=job_attributes['name'] + '@prod'
+                atlas_attributes={'qualifiedName':qualified_name}
+                attributes=job_attributes | atlas_attributes
+                ol_atlas_dbt_app.attributes=attributes
+
+                #print(ol_atlas_dbt_app)
+                ol_atlas_info        = AtlasEntityWithExtInfo()
+                ol_atlas_info.entity = ol_atlas_dbt_app
+
+                print('Creating ol_atlas_dbt_app')
+                resp = atlas_client.entity.create_entity(ol_atlas_info)
+
+                guid_dbt_app = resp.get_assigned_guid(ol_atlas_dbt_app.guid)
+
+                print('created ol_atlas_dbt_app: guid=' + guid_dbt_app)
+
+                # Process for Run
+
+                ol_atlas_run_process= AtlasEntity({ 'typeName': 'dbt_process' })
+
+                run_attributes=event["run"]
+                process_name='run_'+run_attributes['runId']
+                atlas_attributes={'name':process_name, 'qualifiedName':run_attributes['runId'] + '@prod'}
+                attributes=run_attributes | atlas_attributes
+                ol_atlas_run_process.attributes=attributes
+                ol_atlas_run_process.relationshipAttributes = { 'application' : AtlasRelatedObjectId({ 'guid': guid_dbt_app})  }
+
+                #print(ol_atlas_run_process)
+                ol_atlas_info        = AtlasEntityWithExtInfo()
+                ol_atlas_info.entity = ol_atlas_run_process
+
+                print('Creating ol_atlas_run_process')
+
+                resp = atlas_client.entity.create_entity(ol_atlas_info)
+
+                guid_dbt_run_process = resp.get_assigned_guid(ol_atlas_run_process.guid)
+
+                print('created ol_atlas_run_process: guid=' + guid_dbt_run_process)
+
+                # Processes for inputs
+
+                event_inputs=event["inputs"]
+
+                for i in range(len(event_inputs)):
+
+                    base_name='input_'
+                    name=f'{base_name}{i+1}' + '_' + event['run']['runId']
+                    qualified_name=name+'@prod'
+                    
+                    ol_atlas_inputs_process= AtlasEntity({ 'typeName': 'dbt_process' })
+                    
+                    input_attributes=event_inputs[i]
+                    atlas_attributes={'name':name, 'qualifiedName':qualified_name}
+                    attributes= input_attributes | atlas_attributes
+                    ol_atlas_inputs_process.attributes=attributes
+                    ol_atlas_inputs_process.relationshipAttributes = { 'application' : AtlasRelatedObjectId({ 'guid': guid_dbt_app}), 'run' : AtlasRelatedObjectId({ 'guid': guid_dbt_run_process}) }
+
+                    #print(ol_atlas_inputs_process)
+                    ol_atlas_info        = AtlasEntityWithExtInfo()
+                    ol_atlas_info.entity = ol_atlas_inputs_process
+
+                    print('Creating ' + name)
+
+                    resp = atlas_client.entity.create_entity(ol_atlas_info)
+                    guid_dbt_inputs_process = resp.get_assigned_guid(ol_atlas_inputs_process.guid)
+
+                    print('created ol_atlas_inputs_process: guid=' + guid_dbt_inputs_process)
+
+                # Processes for outputs
+
+                event_outputs=event["outputs"]
+
+                for i in range(len(event_outputs)):
+
+                    base_name='output_'
+                    name=f'{base_name}{i+1}' + '_' + event['run']['runId']
+                    qualified_name=name+'@prod'
+                    
+                    ol_atlas_outputs_process= AtlasEntity({ 'typeName': 'dbt_process' })
+                    
+                    output_attributes=event_outputs[i]
+                    atlas_attributes={'name':name, 'qualifiedName':qualified_name}
+                    attributes= output_attributes | atlas_attributes
+                    ol_atlas_outputs_process.attributes=attributes
+                    ol_atlas_outputs_process.relationshipAttributes = { 'application' : AtlasRelatedObjectId({ 'guid': guid_dbt_app}), 'run' : AtlasRelatedObjectId({ 'guid': guid_dbt_run_process}) }
+
+                    #print(ol_atlas_outputs_process)
+                    ol_atlas_info        = AtlasEntityWithExtInfo()
+                    ol_atlas_info.entity = ol_atlas_outputs_process
+
+                    print('Creating ' + name)
+
+                    resp = atlas_client.entity.create_entity(ol_atlas_info)
+                    guid_dbt_outputs_process = resp.get_assigned_guid(ol_atlas_outputs_process.guid)
+
+                    print('created ol_atlas_outputs_process: guid=' + guid_dbt_outputs_process)
 
 
-    consumer.acknowledge(msg)
-    
+            else :
+                print("Producer is : ", event['producer'], '\nThis framework is not implemented')
+
+        consumer.acknowledge(msg)
+
+        print("Message successfully processed")
+
+
+
+    except Exception as e:
+        print(e)
+        consumer.negative_acknowledge(msg)
+        print("Message failed to be processed")
+        
+
+
 client.close()
+
 
 
